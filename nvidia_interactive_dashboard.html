@@ -1,0 +1,2164 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NVIDIA Interactive Stock Analysis Dashboard</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+    <style>
+        :root {
+            --nvidia-green: #76B900;
+            --nvidia-dark-green: #57A300;
+            --nvidia-light-green: #A8FF00;
+            --nvidia-blue: #00A2FF;
+            --nvidia-dark-blue: #0076B3;
+            --nvidia-red: #FF3333;
+            --nvidia-orange: #FF8C00;
+            --nvidia-purple: #9370DB;
+            --nvidia-gray: #666666;
+            --background-color: #f5f5f5;
+            --card-background: white;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: var(--background-color);
+            color: #333;
+        }
+
+        .container {
+            width: 95%;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .header {
+            background-color: var(--nvidia-green);
+            color: white;
+            padding: 20px;
+            text-align: center;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        }
+
+        .dashboard-row {
+            display: flex;
+            flex-wrap: wrap;
+            margin: -10px;
+            justify-content: space-between;
+        }
+
+        .dashboard-card {
+            background-color: var(--card-background);
+            border-radius: 10px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+            margin: 10px;
+            padding: 15px;
+            flex-grow: 1;
+            flex-basis: 0;
+            min-width: 300px;
+        }
+
+        .dashboard-card.full-width {
+            flex-basis: 100%;
+            width: 100%;
+        }
+
+        .dashboard-card.half-width {
+            flex-basis: calc(50% - 40px);
+        }
+
+        .dashboard-card h2 {
+            color: var(--nvidia-green);
+            border-bottom: 2px solid var(--nvidia-green);
+            padding-bottom: 10px;
+            margin-top: 0;
+        }
+
+        .chart-container {
+            width: 100%;
+            text-align: center;
+            height: 400px;
+            position: relative;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 15px 0;
+        }
+
+        th, td {
+            padding: 12px 15px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+
+        th {
+            background-color: var(--nvidia-green);
+            color: white;
+        }
+
+        tr:nth-child(even) {
+            background-color: #f9f9f9;
+        }
+
+        tr:hover {
+            background-color: #f1f1f1;
+        }
+
+        .summary-box {
+            background-color: #f0f8ff;
+            border-left: 5px solid var(--nvidia-green);
+            padding: 15px;
+            margin: 15px 0;
+            border-radius: 5px;
+        }
+
+        .recommendation {
+            font-size: 24px;
+            font-weight: bold;
+            text-align: center;
+            margin: 20px 0;
+            color: #333;
+        }
+
+        .footer {
+            text-align: center;
+            margin-top: 30px;
+            padding: 20px;
+            color: #666;
+            font-size: 14px;
+        }
+
+        .scenario-buttons {
+            display: flex;
+            justify-content: center;
+            margin: 20px 0;
+            flex-wrap: wrap;
+        }
+
+        .scenario-button {
+            background-color: var(--nvidia-green);
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            margin: 5px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: background-color 0.3s;
+        }
+
+        .scenario-button:hover {
+            background-color: var(--nvidia-dark-green);
+        }
+
+        .scenario-button.active {
+            background-color: var(--nvidia-dark-blue);
+        }
+
+        .tab-buttons {
+            display: flex;
+            justify-content: center;
+            margin: 20px 0;
+            border-bottom: 1px solid #ddd;
+        }
+
+        .tab-button {
+            background-color: #f1f1f1;
+            color: #333;
+            border: none;
+            padding: 10px 20px;
+            margin: 0 5px;
+            cursor: pointer;
+            font-weight: bold;
+            border-radius: 5px 5px 0 0;
+            transition: background-color 0.3s;
+        }
+
+        .tab-button:hover {
+            background-color: #ddd;
+        }
+
+        .tab-button.active {
+            background-color: var(--nvidia-green);
+            color: white;
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        .slider-container {
+            margin: 20px 0;
+        }
+
+        .slider-label {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 5px;
+        }
+
+        .slider {
+            width: 100%;
+            height: 15px;
+            border-radius: 5px;
+            background: #d3d3d3;
+            outline: none;
+            -webkit-appearance: none;
+        }
+
+        .slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 25px;
+            height: 25px;
+            border-radius: 50%;
+            background: var(--nvidia-green);
+            cursor: pointer;
+        }
+
+        .slider::-moz-range-thumb {
+            width: 25px;
+            height: 25px;
+            border-radius: 50%;
+            background: var(--nvidia-green);
+            cursor: pointer;
+        }
+
+        .toggle-container {
+            display: flex;
+            align-items: center;
+            margin: 10px 0;
+        }
+
+        .toggle-switch {
+            position: relative;
+            display: inline-block;
+            width: 60px;
+            height: 34px;
+            margin-right: 10px;
+        }
+
+        .toggle-switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .toggle-slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: #ccc;
+            transition: .4s;
+            border-radius: 34px;
+        }
+
+        .toggle-slider:before {
+            position: absolute;
+            content: "";
+            height: 26px;
+            width: 26px;
+            left: 4px;
+            bottom: 4px;
+            background-color: white;
+            transition: .4s;
+            border-radius: 50%;
+        }
+
+        input:checked + .toggle-slider {
+            background-color: var(--nvidia-green);
+        }
+
+        input:checked + .toggle-slider:before {
+            transform: translateX(26px);
+        }
+
+        .hidden {
+            display: none;
+        }
+
+        .loading {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 18px;
+            color: var(--nvidia-gray);
+        }
+
+        @media (max-width: 768px) {
+            .dashboard-card.half-width {
+                flex-basis: 100%;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>NVIDIA Interactive Stock Analysis Dashboard</h1>
+            <p>Comprehensive analysis of NVIDIA Corporation (NASDAQ: NVDA) as of March 14, 2025</p>
+        </div>
+        
+        <div class="dashboard-card full-width">
+            <h2>Interactive Analysis Controls</h2>
+            <div class="scenario-buttons">
+                <button class="scenario-button active" data-scenario="base">Base Case</button>
+                <button class="scenario-button" data-scenario="bull">Bull Case</button>
+                <button class="scenario-button" data-scenario="bear">Bear Case</button>
+                <button class="scenario-button" data-scenario="custom">Custom Scenario</button>
+            </div>
+            
+            <div id="custom-controls" class="hidden">
+                <h3>Customize Your Scenario</h3>
+                <div class="slider-container">
+                    <div class="slider-label">
+                        <span>Revenue Growth Rate:</span>
+                        <span id="revenue-growth-value">20%</span>
+                    </div>
+                    <input type="range" min="0" max="50" value="20" class="slider" id="revenue-growth">
+                </div>
+                
+                <div class="slider-container">
+                    <div class="slider-label">
+                        <span>Gross Margin:</span>
+                        <span id="gross-margin-value">75%</span>
+                    </div>
+                    <input type="range" min="50" max="85" value="75" class="slider" id="gross-margin">
+                </div>
+                
+                <div class="slider-container">
+                    <div class="slider-label">
+                        <span>AI Market Share:</span>
+                        <span id="market-share-value">80%</span>
+                    </div>
+                    <input type="range" min="50" max="90" value="80" class="slider" id="market-share">
+                </div>
+                
+                <div class="slider-container">
+                    <div class="slider-label">
+                        <span>Discount Rate:</span>
+                        <span id="discount-rate-value">9.4%</span>
+                    </div>
+                    <input type="range" min="7" max="12" step="0.1" value="9.4" class="slider" id="discount-rate">
+                </div>
+                
+                <button class="scenario-button" id="apply-custom">Apply Custom Scenario</button>
+            </div>
+            
+            <div class="summary-box" id="scenario-summary">
+                <p><strong>Base Case Scenario:</strong> 20% annual revenue growth, 75% gross margin, 80% AI market share, and 9.4% discount rate.</p>
+            </div>
+            
+            <div class="recommendation" id="recommendation">
+                Investment Recommendation: MODERATE BUY
+            </div>
+        </div>
+        
+        <div class="dashboard-card full-width">
+            <h2>Executive Summary</h2>
+            <div class="tab-buttons">
+                <button class="tab-button active" data-tab="overview">Overview</button>
+                <button class="tab-button" data-tab="investment-thesis">Investment Thesis</button>
+                <button class="tab-button" data-tab="risk-factors">Risk Factors</button>
+            </div>
+            
+            <div id="overview" class="tab-content active">
+                <div class="summary-box">
+                    <p>NVIDIA Corporation has transformed from a graphics processing unit (GPU) manufacturer into the dominant provider of AI computing infrastructure. The company maintains approximately 80% market share in AI chips, with exceptional financial performance including 114% year-over-year revenue growth and industry-leading profit margins of 75%.</p>
+                    <p>Technical indicators suggest near-term caution with a bearish bias, though long-term fundamentals remain strong. Valuation analysis indicates the stock may be slightly overvalued (14%) based on DCF models, but reasonably valued when considering growth potential.</p>
+                </div>
+                <ul>
+                    <li><strong>For Long-Term Growth Investors:</strong> <span id="long-term-rec">BUY</span> - NVIDIA's dominant position in AI computing infrastructure and substantial growth runway make it an attractive long-term investment despite premium valuation.</li>
+                    <li><strong>For Value Investors:</strong> <span id="value-rec">HOLD</span> - Current valuation exceeds conservative intrinsic value estimates, suggesting limited margin of safety.</li>
+                    <li><strong>For Short-Term Traders:</strong> <span id="short-term-rec">NEUTRAL</span> - Technical indicators suggest caution in the near term, with potential for continued volatility.</li>
+                </ul>
+            </div>
+            
+            <div id="investment-thesis" class="tab-content">
+                <div class="summary-box">
+                    <p>NVIDIA represents a premier AI investment opportunity with exceptional financial performance, dominant market position, and substantial growth runway. While the current valuation incorporates high expectations for future growth, the company's execution track record and expanding addressable market provide reasonable justification for this premium.</p>
+                </div>
+                <h3>Key Investment Pillars:</h3>
+                <ol>
+                    <li><strong>AI Computing Infrastructure Dominance:</strong> NVIDIA has established an overwhelming leadership position in AI computing infrastructure with approximately <span id="market-share-text">80%</span> market share and a strong software ecosystem creating significant switching costs.</li>
+                    <li><strong>Exceptional Financial Performance:</strong> The company's financial metrics demonstrate extraordinary performance with <span id="revenue-growth-text">114%</span> revenue growth, <span id="gross-margin-text">75%</span> gross margins, and 147% EPS growth year-over-year.</li>
+                    <li><strong>Substantial Growth Runway:</strong> Despite its already massive scale, NVIDIA has multiple avenues for continued growth including AI infrastructure expansion, new chip architectures, software and services, edge computing, and automotive applications.</li>
+                    <li><strong>Premium Valuation with Justification:</strong> While traditional valuation metrics suggest NVIDIA may be slightly overvalued, the company's exceptional growth rate, dominant market position, and expanding addressable market provide justification for this premium.</li>
+                    <li><strong>Balanced Risk-Reward Profile:</strong> NVIDIA presents a balanced risk-reward profile with significant upside potential if growth exceeds expectations but downside risk if competitive pressures intensify or growth slows.</li>
+                </ol>
+            </div>
+            
+            <div id="risk-factors" class="tab-content">
+                <h3>Key Risks to Monitor:</h3>
+                <ul>
+                    <li><strong>Competition Intensification:</strong> Increasing competition from AMD, Intel, and custom silicon from cloud providers</li>
+                    <li><strong>Margin Pressure:</strong> Potential margin compression as competition increases</li>
+                    <li><strong>Regulatory Challenges:</strong> Potential regulatory restrictions on AI chip exports or antitrust concerns</li>
+                    <li><strong>Market Saturation:</strong> Potential slowdown in AI infrastructure spending</li>
+                    <li><strong>Valuation Contraction:</strong> Risk of P/E multiple contraction if growth rates decline</li>
+                </ul>
+                
+                <h3>Risk Sensitivity Analysis:</h3>
+                <div class="toggle-container">
+                    <label class="toggle-switch">
+                        <input type="checkbox" id="show-risk-sensitivity">
+                        <span class="toggle-slider"></span>
+                    </label>
+                    <span>Show Risk Sensitivity Analysis</span>
+                </div>
+                
+                <div id="risk-sensitivity-chart" class="chart-container hidden">
+                    <div class="loading">Loading chart...</div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="dashboard-row">
+            <div class="dashboard-card half-width">
+                <h2>Financial Performance</h2>
+                <div class="tab-buttons">
+                    <button class="tab-button active" data-tab="revenue-margins">Revenue & Margins</button>
+                    <button class="tab-button" data-tab="segment-breakdown">Segment Breakdown</button>
+                    <button class="tab-button" data-tab="future-projections">Future Projections</button>
+                </div>
+                
+                <div id="revenue-margins" class="tab-content active">
+                    <div class="chart-container">
+                        <div class="loading">Loading chart...</div>
+                        <canvas id="revenue-margins-chart"></canvas>
+                    </div>
+                    
+                    <table>
+                        <tr>
+                            <th>Metric</th>
+                            <th>FY2025</th>
+                            <th>YoY Growth</th>
+                        </tr>
+                        <tr>
+                            <td>Revenue</td>
+                            <td>$130.5 billion</td>
+                            <td>+114%</td>
+                        </tr>
+                        <tr>
+                            <td>Gross Margin</td>
+                            <td id="table-gross-margin">75.0%</td>
+                            <td>+2.3 pts</td>
+                        </tr>
+                        <tr>
+                            <td>Operating Margin</td>
+                            <td>62.4%</td>
+                            <td>+3.9 pts</td>
+                        </tr>
+                        <tr>
+                            <td>Net Income</td>
+                            <td>$73.9 billion</td>
+                            <td>+145%</td>
+                        </tr>
+                        <tr>
+                            <td>Diluted EPS</td>
+                            <td>$2.94</td>
+                            <td>+147%</td>
+                        </tr>
+                    </table>
+                </div>
+                
+                <div id="segment-breakdown" class="tab-content">
+                    <div class="chart-container">
+                        <div class="loading">Loading chart...</div>
+                        <canvas id="segment-breakdown-chart"></canvas>
+                    </div>
+                    
+                    <table>
+                        <tr>
+                            <th>Segment</th>
+                            <th>Revenue (Q4 FY2025)</th>
+                            <th>YoY Growth</th>
+                        </tr>
+                        <tr>
+                            <td>Data Center</td>
+                            <td>$35.6 billion</td>
+                            <td>+93%</td>
+                        </tr>
+                        <tr>
+                            <td>Gaming</td>
+                            <td>$2.8 billion</td>
+                            <td>+16%</td>
+                        </tr>
+                        <tr>
+                            <td>Professional Visualization</td>
+                            <td>$0.4 billion</td>
+                            <td>+12%</td>
+                        </tr>
+                        <tr>
+                            <td>Automotive</td>
+                            <td>$0.3 billion</td>
+                            <td>+8%</td>
+                        </tr>
+                        <tr>
+                            <td>OEM & Other</td>
+                            <td>$0.2 billion</td>
+                            <td>-15%</td>
+                        </tr>
+                    </table>
+                </div>
+                
+                <div id="future-projections" class="tab-content">
+                    <div class="chart-container">
+                        <div class="loading">Loading chart...</div>
+                        <canvas id="future-projections-chart"></canvas>
+                    </div>
+                    
+                    <table id="projections-table">
+                        <tr>
+                            <th>Year</th>
+                            <th>Revenue (Billions)</th>
+                            <th>Growth Rate</th>
+                            <th>EPS</th>
+                        </tr>
+                        <tr>
+                            <td>FY2025 (Actual)</td>
+                            <td>$130.5</td>
+                            <td>+114%</td>
+                            <td>$2.94</td>
+                        </tr>
+                        <tr>
+                            <td>FY2026 (Projected)</td>
+                            <td id="fy2026-revenue">$156.6</td>
+                            <td id="fy2026-growth">+20%</td>
+                            <td>$3.53</td>
+                        </tr>
+                        <tr>
+                            <td>FY2027 (Projected)</td>
+                            <td id="fy2027-revenue">$187.9</td>
+                            <td id="fy2027-growth">+20%</td>
+                            <td>$4.24</td>
+                        </tr>
+                        <tr>
+                            <td>FY2028 (Projected)</td>
+                            <td id="fy2028-revenue">$225.5</td>
+                            <td id="fy2028-growth">+20%</td>
+                            <td>$5.08</td>
+                        </tr>
+                        <tr>
+                            <td>FY2029 (Projected)</td>
+                            <td id="fy2029-revenue">$270.6</td>
+                            <td id="fy2029-growth">+20%</td>
+                            <td>$6.10</td>
+                        </tr>
+                        <tr>
+                            <td>FY2030 (Projected)</td>
+                            <td id="fy2030-revenue">$324.7</td>
+                            <td id="fy2030-growth">+20%</td>
+                            <td>$7.32</td>
+                        </tr>
+                    </table>
+                </div>
+            </div>
+            
+            <div class="dashboard-card half-width">
+                <h2>Valuation Analysis</h2>
+                <div class="tab-buttons">
+                    <button class="tab-button active" data-tab="dcf-valuation">DCF Valuation</button>
+                    <button class="tab-button" data-tab="valuation-metrics">Valuation Metrics</button>
+                    <button class="tab-button" data-tab="sensitivity-analysis">Sensitivity Analysis</button>
+                </div>
+                
+                <div id="dcf-valuation" class="tab-content active">
+                    <div class="chart-container">
+                        <div class="loading">Loading chart...</div>
+                        <canvas id="dcf-valuation-chart"></canvas>
+                    </div>
+                    
+                    <table>
+                        <tr>
+                            <th>Scenario</th>
+                            <th>DCF Value</th>
+                            <th>Current Price</th>
+                            <th>Valuation</th>
+                        </tr>
+                        <tr>
+                            <td>Bear Case</td>
+                            <td id="bear-dcf-value">$72.50</td>
+                            <td rowspan="3">$115.58</td>
+                            <td id="bear-valuation">Overvalued by 59%</td>
+                        </tr>
+                        <tr>
+                            <td>Base Case</td>
+                            <td id="base-dcf-value">$99.45</td>
+                            <td id="base-valuation">Overvalued by 16%</td>
+                        </tr>
+                        <tr>
+                            <td>Bull Case</td>
+                            <td id="bull-dcf-value">$175.00</td>
+                            <td id="bull-valuation">Undervalued by 34%</td>
+                        </tr>
+                    </table>
+                    
+                    <div class="summary-box">
+                        <p>The DCF valuation is based on a <span id="dcf-discount-rate">9.4%</span> discount rate and <span id="dcf-growth-rate">20%</span> annual revenue growth rate over the next 5 years. The terminal growth rate is set at 3%.</p>
+                    </div>
+                </div>
+                
+                <div id="valuation-metrics" class="tab-content">
+                    <div class="chart-container">
+                        <div class="loading">Loading chart...</div>
+                        <canvas id="valuation-metrics-chart"></canvas>
+                    </div>
+                    
+                    <table>
+                        <tr>
+                            <th>Metric</th>
+                            <th>NVIDIA</th>
+                            <th>Industry Avg</th>
+                            <th>Premium/Discount</th>
+                        </tr>
+                        <tr>
+                            <td>P/E (TTM)</td>
+                            <td>39.43</td>
+                            <td>29.8</td>
+                            <td>+32%</td>
+                        </tr>
+                        <tr>
+                            <td>Forward P/E</td>
+                            <td id="forward-pe">25.70</td>
+                            <td>22.4</td>
+                            <td id="forward-pe-premium">+15%</td>
+                        </tr>
+                        <tr>
+                            <td>PEG Ratio</td>
+                            <td id="peg-ratio">1.28</td>
+                            <td>1.5</td>
+                            <td>-15%</td>
+                        </tr>
+                        <tr>
+                            <td>P/S (TTM)</td>
+                            <td>21.6</td>
+                            <td>8.2</td>
+                            <td>+163%</td>
+                        </tr>
+                        <tr>
+                            <td>EV/EBITDA</td>
+                            <td>33.8</td>
+                            <td>18.5</td>
+                            <td>+83%</td>
+                        </tr>
+                    </table>
+                </div>
+                
+                <div id="sensitivity-analysis" class="tab-content">
+                    <div class="chart-container">
+                        <div class="loading">Loading chart...</div>
+                        <div id="sensitivity-heatmap"></div>
+                    </div>
+                    
+                    <div class="summary-box">
+                        <p>This sensitivity analysis shows how changes in revenue growth rate and discount rate affect NVIDIA's intrinsic value. The current scenario assumes <span id="sensitivity-growth-rate">20%</span> revenue growth and <span id="sensitivity-discount-rate">9.4%</span> discount rate.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="dashboard-row">
+            <div class="dashboard-card half-width">
+                <h2>Competitive Analysis</h2>
+                <div class="tab-buttons">
+                    <button class="tab-button active" data-tab="market-share">Market Share</button>
+                    <button class="tab-button" data-tab="financial-comparison">Financial Comparison</button>
+                    <button class="tab-button" data-tab="competitive-positioning">Competitive Positioning</button>
+                </div>
+                
+                <div id="market-share" class="tab-content active">
+                    <div class="chart-container">
+                        <div class="loading">Loading chart...</div>
+                        <canvas id="market-share-chart"></canvas>
+                    </div>
+                    
+                    <div class="summary-box">
+                        <p>NVIDIA maintains a dominant position in the AI chip market with approximately <span id="ai-market-share">80%</span> market share. This dominance is driven by the company's first-mover advantage, superior hardware performance, and comprehensive CUDA software ecosystem that creates significant switching costs for customers.</p>
+                    </div>
+                </div>
+                
+                <div id="financial-comparison" class="tab-content">
+                    <div class="chart-container">
+                        <div class="loading">Loading chart...</div>
+                        <canvas id="financial-comparison-chart"></canvas>
+                    </div>
+                    
+                    <table>
+                        <tr>
+                            <th>Company</th>
+                            <th>Revenue Growth</th>
+                            <th>Gross Margin</th>
+                            <th>Operating Margin</th>
+                        </tr>
+                        <tr>
+                            <td>NVIDIA</td>
+                            <td id="nvidia-revenue-growth">114%</td>
+                            <td id="nvidia-gross-margin">75.0%</td>
+                            <td>62.4%</td>
+                        </tr>
+                        <tr>
+                            <td>AMD</td>
+                            <td>15%</td>
+                            <td>52.0%</td>
+                            <td>10.0%</td>
+                        </tr>
+                        <tr>
+                            <td>Intel</td>
+                            <td>-2%</td>
+                            <td>41.0%</td>
+                            <td>5.0%</td>
+                        </tr>
+                        <tr>
+                            <td>Qualcomm</td>
+                            <td>10%</td>
+                            <td>57.0%</td>
+                            <td>30.0%</td>
+                        </tr>
+                        <tr>
+                            <td>Broadcom</td>
+                            <td>20%</td>
+                            <td>70.0%</td>
+                            <td>40.0%</td>
+                        </tr>
+                    </table>
+                </div>
+                
+                <div id="competitive-positioning" class="tab-content">
+                    <div class="chart-container">
+                        <div class="loading">Loading chart...</div>
+                        <div id="competitive-positioning-chart"></div>
+                    </div>
+                    
+                    <div class="summary-box">
+                        <p>This quadrant analysis positions companies based on their AI capabilities and financial strength. NVIDIA leads in both dimensions, with strong competitive advantages in AI hardware, software ecosystem, and financial resources to fund R&D.</p>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="dashboard-card half-width">
+                <h2>Technical Analysis</h2>
+                <div class="tab-buttons">
+                    <button class="tab-button active" data-tab="price-chart">Price Chart</button>
+                    <button class="tab-button" data-tab="technical-indicators">Technical Indicators</button>
+                    <button class="tab-button" data-tab="support-resistance">Support & Resistance</button>
+                </div>
+                
+                <div id="price-chart" class="tab-content active">
+                    <div class="chart-container">
+                        <div class="loading">Loading chart...</div>
+                        <div id="interactive-price-chart"></div>
+                    </div>
+                    
+                    <div class="toggle-container">
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="show-moving-averages">
+                            <span class="toggle-slider"></span>
+                        </label>
+                        <span>Show Moving Averages</span>
+                    </div>
+                    
+                    <div class="toggle-container">
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="show-volume">
+                            <span class="toggle-slider"></span>
+                        </label>
+                        <span>Show Volume</span>
+                    </div>
+                </div>
+                
+                <div id="technical-indicators" class="tab-content">
+                    <div class="chart-container">
+                        <div class="loading">Loading chart...</div>
+                        <canvas id="technical-indicators-chart"></canvas>
+                    </div>
+                    
+                    <table>
+                        <tr>
+                            <th>Indicator</th>
+                            <th>Value</th>
+                            <th>Signal</th>
+                        </tr>
+                        <tr>
+                            <td>RSI (14)</td>
+                            <td>42.5</td>
+                            <td>Neutral</td>
+                        </tr>
+                        <tr>
+                            <td>MACD</td>
+                            <td>-2.1</td>
+                            <td>Sell</td>
+                        </tr>
+                        <tr>
+                            <td>Stochastic %K</td>
+                            <td>35.2</td>
+                            <td>Sell</td>
+                        </tr>
+                        <tr>
+                            <td>ADX</td>
+                            <td>22.3</td>
+                            <td>Neutral</td>
+                        </tr>
+                        <tr>
+                            <td>CCI</td>
+                            <td>-112.5</td>
+                            <td>Sell</td>
+                        </tr>
+                    </table>
+                </div>
+                
+                <div id="support-resistance" class="tab-content">
+                    <div class="chart-container">
+                        <div class="loading">Loading chart...</div>
+                        <div id="support-resistance-chart"></div>
+                    </div>
+                    
+                    <table>
+                        <tr>
+                            <th>Level Type</th>
+                            <th>Price</th>
+                            <th>Strength</th>
+                        </tr>
+                        <tr>
+                            <td>Strong Resistance</td>
+                            <td>$121.60</td>
+                            <td>High</td>
+                        </tr>
+                        <tr>
+                            <td>Resistance</td>
+                            <td>$119.68</td>
+                            <td>Medium</td>
+                        </tr>
+                        <tr>
+                            <td>Resistance</td>
+                            <td>$117.63</td>
+                            <td>Medium</td>
+                        </tr>
+                        <tr>
+                            <td>Support</td>
+                            <td>$113.66</td>
+                            <td>Medium</td>
+                        </tr>
+                        <tr>
+                            <td>Support</td>
+                            <td>$111.74</td>
+                            <td>Medium</td>
+                        </tr>
+                        <tr>
+                            <td>Strong Support</td>
+                            <td>$109.69</td>
+                            <td>High</td>
+                        </tr>
+                    </table>
+                </div>
+            </div>
+        </div>
+        
+        <div class="dashboard-card full-width">
+            <h2>SWOT Analysis</h2>
+            <div class="chart-container">
+                <div class="loading">Loading chart...</div>
+                <div id="swot-chart"></div>
+            </div>
+        </div>
+        
+        <div class="footer">
+            <p>NVIDIA Interactive Stock Analysis Dashboard | Generated on March 14, 2025 | Data sources: Company reports, analyst estimates, market data</p>
+        </div>
+    </div>
+    
+    <script>
+        // Data for different scenarios
+        const scenarios = {
+            base: {
+                revenueGrowth: 20,
+                grossMargin: 75,
+                marketShare: 80,
+                discountRate: 9.4,
+                dcfValue: 99.45,
+                recommendation: "MODERATE BUY",
+                longTermRec: "BUY",
+                valueRec: "HOLD",
+                shortTermRec: "NEUTRAL"
+            },
+            bull: {
+                revenueGrowth: 35,
+                grossMargin: 78,
+                marketShare: 85,
+                discountRate: 8.5,
+                dcfValue: 175.00,
+                recommendation: "STRONG BUY",
+                longTermRec: "STRONG BUY",
+                valueRec: "BUY",
+                shortTermRec: "BUY"
+            },
+            bear: {
+                revenueGrowth: 10,
+                grossMargin: 70,
+                marketShare: 70,
+                discountRate: 11.0,
+                dcfValue: 72.50,
+                recommendation: "HOLD",
+                longTermRec: "HOLD",
+                valueRec: "SELL",
+                shortTermRec: "SELL"
+            },
+            custom: {
+                revenueGrowth: 20,
+                grossMargin: 75,
+                marketShare: 80,
+                discountRate: 9.4,
+                dcfValue: 99.45,
+                recommendation: "MODERATE BUY",
+                longTermRec: "BUY",
+                valueRec: "HOLD",
+                shortTermRec: "NEUTRAL"
+            }
+        };
+        
+        // Financial data
+        const financialData = {
+            quarters: ['Q1 FY2024', 'Q2 FY2024', 'Q3 FY2024', 'Q4 FY2024', 'Q1 FY2025', 'Q2 FY2025', 'Q3 FY2025', 'Q4 FY2025'],
+            revenue: [7.2, 13.5, 18.1, 22.1, 26.0, 32.5, 35.0, 39.3],
+            grossMargin: [70.1, 71.2, 74.0, 72.7, 74.5, 75.0, 74.8, 75.0],
+            operatingMargin: [55.2, 57.8, 58.0, 58.5, 59.0, 60.5, 61.8, 62.4]
+        };
+        
+        // Segment data
+        const segmentData = {
+            segments: ['Data Center', 'Gaming', 'Professional Visualization', 'Automotive', 'OEM & Other'],
+            revenue: [35.6, 2.8, 0.4, 0.3, 0.2],
+            growth: [93, 16, 12, 8, -15]
+        };
+        
+        // Competitor data
+        const competitorData = {
+            companies: ['NVIDIA', 'AMD', 'Intel', 'Qualcomm', 'Broadcom'],
+            marketCap: [2820, 159, 103, 180, 900],
+            revenue: [130.5, 25.8, 60.0, 40.0, 50.0],
+            grossMargin: [75.0, 52.0, 41.0, 57.0, 70.0],
+            operatingMargin: [62.4, 10.0, 5.0, 30.0, 40.0],
+            growth: [114, 15, -2, 10, 20],
+            aiMarketShare: [80, 5, 1, 2, 3]
+        };
+        
+        // Stock price data
+        const stockPriceData = {
+            dates: ['2024-03-01', '2024-04-01', '2024-05-01', '2024-06-01', '2024-07-01', '2024-08-01', '2024-09-01', '2024-10-01', '2024-11-01', '2024-12-01', '2025-01-01', '2025-02-01', '2025-03-01'],
+            prices: [80.5, 85.2, 92.8, 98.5, 105.3, 112.7, 120.5, 128.9, 135.2, 142.8, 138.5, 130.2, 115.6],
+            volume: [120, 145, 160, 130, 140, 155, 170, 190, 210, 230, 250, 200, 180]
+        };
+        
+        // SWOT data
+        const swotData = {
+            strengths: [
+                'Dominant AI chip market share (80%)',
+                'Industry-leading profit margins (75%)',
+                'Strong CUDA software ecosystem'
+            ],
+            weaknesses: [
+                'Heavy concentration in AI computing',
+                'Limited presence in CPUs'
+            ],
+            opportunities: [
+                'Expansion into software and services',
+                'Edge AI computing growth'
+            ],
+            threats: [
+                'Increasing competition',
+                'Potential regulatory challenges'
+            ]
+        };
+        
+        // Initialize charts when the page loads
+        document.addEventListener('DOMContentLoaded', function() {
+            // Initialize tab functionality
+            const tabButtons = document.querySelectorAll('.tab-button');
+            tabButtons.forEach(button => {
+                button.addEventListener('click', function() {
+                    const tabId = this.getAttribute('data-tab');
+                    const tabContent = document.getElementById(tabId);
+                    const parentCard = this.closest('.dashboard-card');
+                    
+                    // Remove active class from all buttons and content in this card
+                    parentCard.querySelectorAll('.tab-button').forEach(btn => btn.classList.remove('active'));
+                    parentCard.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+                    
+                    // Add active class to clicked button and corresponding content
+                    this.classList.add('active');
+                    tabContent.classList.add('active');
+                });
+            });
+            
+            // Initialize scenario buttons
+            const scenarioButtons = document.querySelectorAll('.scenario-button[data-scenario]');
+            scenarioButtons.forEach(button => {
+                button.addEventListener('click', function() {
+                    const scenarioType = this.getAttribute('data-scenario');
+                    
+                    // Remove active class from all scenario buttons
+                    document.querySelectorAll('.scenario-button[data-scenario]').forEach(btn => btn.classList.remove('active'));
+                    
+                    // Add active class to clicked button
+                    this.classList.add('active');
+                    
+                    // Show/hide custom controls
+                    if (scenarioType === 'custom') {
+                        document.getElementById('custom-controls').classList.remove('hidden');
+                    } else {
+                        document.getElementById('custom-controls').classList.add('hidden');
+                        updateDashboard(scenarioType);
+                    }
+                });
+            });
+            
+            // Initialize custom scenario controls
+            const revenueGrowthSlider = document.getElementById('revenue-growth');
+            const revenueGrowthValue = document.getElementById('revenue-growth-value');
+            revenueGrowthSlider.addEventListener('input', function() {
+                revenueGrowthValue.textContent = this.value + '%';
+                scenarios.custom.revenueGrowth = parseInt(this.value);
+            });
+            
+            const grossMarginSlider = document.getElementById('gross-margin');
+            const grossMarginValue = document.getElementById('gross-margin-value');
+            grossMarginSlider.addEventListener('input', function() {
+                grossMarginValue.textContent = this.value + '%';
+                scenarios.custom.grossMargin = parseInt(this.value);
+            });
+            
+            const marketShareSlider = document.getElementById('market-share');
+            const marketShareValue = document.getElementById('market-share-value');
+            marketShareSlider.addEventListener('input', function() {
+                marketShareValue.textContent = this.value + '%';
+                scenarios.custom.marketShare = parseInt(this.value);
+            });
+            
+            const discountRateSlider = document.getElementById('discount-rate');
+            const discountRateValue = document.getElementById('discount-rate-value');
+            discountRateSlider.addEventListener('input', function() {
+                discountRateValue.textContent = this.value + '%';
+                scenarios.custom.discountRate = parseFloat(this.value);
+            });
+            
+            // Apply custom scenario button
+            document.getElementById('apply-custom').addEventListener('click', function() {
+                // Calculate new DCF value based on custom inputs
+                const baseValue = 99.45;
+                const growthEffect = (scenarios.custom.revenueGrowth - 20) * 3.5; // Each 1% change in growth affects DCF by $3.5
+                const marginEffect = (scenarios.custom.grossMargin - 75) * 4.2;   // Each 1% change in margin affects DCF by $4.2
+                const discountEffect = (9.4 - scenarios.custom.discountRate) * 12; // Each 1% decrease in discount rate increases DCF by $12
+                
+                scenarios.custom.dcfValue = Math.round((baseValue + growthEffect + marginEffect + discountEffect) * 100) / 100;
+                
+                // Determine recommendation based on custom DCF value
+                const currentPrice = 115.58;
+                const valuationRatio = scenarios.custom.dcfValue / currentPrice;
+                
+                if (valuationRatio > 1.2) {
+                    scenarios.custom.recommendation = "STRONG BUY";
+                    scenarios.custom.longTermRec = "STRONG BUY";
+                    scenarios.custom.valueRec = "BUY";
+                    scenarios.custom.shortTermRec = "BUY";
+                } else if (valuationRatio > 1.05) {
+                    scenarios.custom.recommendation = "BUY";
+                    scenarios.custom.longTermRec = "BUY";
+                    scenarios.custom.valueRec = "BUY";
+                    scenarios.custom.shortTermRec = "NEUTRAL";
+                } else if (valuationRatio > 0.95) {
+                    scenarios.custom.recommendation = "MODERATE BUY";
+                    scenarios.custom.longTermRec = "BUY";
+                    scenarios.custom.valueRec = "HOLD";
+                    scenarios.custom.shortTermRec = "NEUTRAL";
+                } else if (valuationRatio > 0.8) {
+                    scenarios.custom.recommendation = "HOLD";
+                    scenarios.custom.longTermRec = "HOLD";
+                    scenarios.custom.valueRec = "HOLD";
+                    scenarios.custom.shortTermRec = "SELL";
+                } else {
+                    scenarios.custom.recommendation = "SELL";
+                    scenarios.custom.longTermRec = "HOLD";
+                    scenarios.custom.valueRec = "SELL";
+                    scenarios.custom.shortTermRec = "SELL";
+                }
+                
+                updateDashboard('custom');
+            });
+            
+            // Initialize toggle switches
+            document.getElementById('show-risk-sensitivity').addEventListener('change', function() {
+                const chart = document.getElementById('risk-sensitivity-chart');
+                if (this.checked) {
+                    chart.classList.remove('hidden');
+                    createRiskSensitivityChart();
+                } else {
+                    chart.classList.add('hidden');
+                }
+            });
+            
+            document.getElementById('show-moving-averages').addEventListener('change', function() {
+                updatePriceChart(this.checked, document.getElementById('show-volume').checked);
+            });
+            
+            document.getElementById('show-volume').addEventListener('change', function() {
+                updatePriceChart(document.getElementById('show-moving-averages').checked, this.checked);
+            });
+            
+            // Initialize charts
+            initializeCharts();
+            
+            // Set initial scenario
+            updateDashboard('base');
+        });
+        
+        function updateDashboard(scenarioType) {
+            const scenario = scenarios[scenarioType];
+            
+            // Update scenario summary
+            let summaryText = `<strong>${scenarioType.charAt(0).toUpperCase() + scenarioType.slice(1)} Case Scenario:</strong> ${scenario.revenueGrowth}% annual revenue growth, ${scenario.grossMargin}% gross margin, ${scenario.marketShare}% AI market share, and ${scenario.discountRate}% discount rate.`;
+            document.getElementById('scenario-summary').innerHTML = `<p>${summaryText}</p>`;
+            
+            // Update recommendation
+            document.getElementById('recommendation').textContent = `Investment Recommendation: ${scenario.recommendation}`;
+            document.getElementById('long-term-rec').textContent = scenario.longTermRec;
+            document.getElementById('value-rec').textContent = scenario.valueRec;
+            document.getElementById('short-term-rec').textContent = scenario.shortTermRec;
+            
+            // Update investment thesis values
+            document.getElementById('market-share-text').textContent = `${scenario.marketShare}%`;
+            document.getElementById('revenue-growth-text').textContent = `${scenario.revenueGrowth}%`;
+            document.getElementById('gross-margin-text').textContent = `${scenario.grossMargin}%`;
+            
+            // Update financial tables
+            document.getElementById('table-gross-margin').textContent = `${scenario.grossMargin}.0%`;
+            document.getElementById('nvidia-revenue-growth').textContent = `${scenario.revenueGrowth}%`;
+            document.getElementById('nvidia-gross-margin').textContent = `${scenario.grossMargin}.0%`;
+            
+            // Update DCF valuation
+            document.getElementById('base-dcf-value').textContent = `$${scenarios.base.dcfValue}`;
+            document.getElementById('bull-dcf-value').textContent = `$${scenarios.bull.dcfValue}`;
+            document.getElementById('bear-dcf-value').textContent = `$${scenarios.bear.dcfValue}`;
+            
+            const currentPrice = 115.58;
+            document.getElementById('base-valuation').textContent = `${scenarios.base.dcfValue > currentPrice ? 'Undervalued by ' : 'Overvalued by '}${Math.abs(Math.round((1 - currentPrice / scenarios.base.dcfValue) * 100))}%`;
+            document.getElementById('bull-valuation').textContent = `${scenarios.bull.dcfValue > currentPrice ? 'Undervalued by ' : 'Overvalued by '}${Math.abs(Math.round((1 - currentPrice / scenarios.bull.dcfValue) * 100))}%`;
+            document.getElementById('bear-valuation').textContent = `${scenarios.bear.dcfValue > currentPrice ? 'Undervalued by ' : 'Overvalued by '}${Math.abs(Math.round((1 - currentPrice / scenarios.bear.dcfValue) * 100))}%`;
+            
+            document.getElementById('dcf-discount-rate').textContent = `${scenario.discountRate}%`;
+            document.getElementById('dcf-growth-rate').textContent = `${scenario.revenueGrowth}%`;
+            
+            // Update AI market share
+            document.getElementById('ai-market-share').textContent = `${scenario.marketShare}%`;
+            
+            // Update valuation metrics
+            const forwardEPS = 4.50; // Base case FY2026 EPS
+            const adjustedEPS = forwardEPS * (1 + (scenario.revenueGrowth - 20) * 0.05); // Adjust EPS based on growth rate
+            const forwardPE = Math.round((currentPrice / adjustedEPS) * 100) / 100;
+            document.getElementById('forward-pe').textContent = forwardPE.toFixed(2);
+            document.getElementById('forward-pe-premium').textContent = `${Math.round((forwardPE / 22.4 - 1) * 100)}%`;
+            
+            const pegRatio = Math.round((forwardPE / scenario.revenueGrowth) * 100) / 100;
+            document.getElementById('peg-ratio').textContent = pegRatio.toFixed(2);
+            
+            // Update sensitivity analysis values
+            document.getElementById('sensitivity-growth-rate').textContent = `${scenario.revenueGrowth}%`;
+            document.getElementById('sensitivity-discount-rate').textContent = `${scenario.discountRate}%`;
+            
+            // Update future projections
+            updateProjectionsTable(scenario.revenueGrowth);
+            
+            // Update charts
+            updateCharts(scenario);
+        }
+        
+        function updateProjectionsTable(growthRate) {
+            const baseRevenue = 130.5;
+            document.getElementById('fy2026-revenue').textContent = `$${Math.round(baseRevenue * (1 + growthRate/100) * 10) / 10}`;
+            document.getElementById('fy2026-growth').textContent = `+${growthRate}%`;
+            
+            document.getElementById('fy2027-revenue').textContent = `$${Math.round(baseRevenue * Math.pow(1 + growthRate/100, 2) * 10) / 10}`;
+            document.getElementById('fy2027-growth').textContent = `+${growthRate}%`;
+            
+            document.getElementById('fy2028-revenue').textContent = `$${Math.round(baseRevenue * Math.pow(1 + growthRate/100, 3) * 10) / 10}`;
+            document.getElementById('fy2028-growth').textContent = `+${growthRate}%`;
+            
+            document.getElementById('fy2029-revenue').textContent = `$${Math.round(baseRevenue * Math.pow(1 + growthRate/100, 4) * 10) / 10}`;
+            document.getElementById('fy2029-growth').textContent = `+${growthRate}%`;
+            
+            document.getElementById('fy2030-revenue').textContent = `$${Math.round(baseRevenue * Math.pow(1 + growthRate/100, 5) * 10) / 10}`;
+            document.getElementById('fy2030-growth').textContent = `+${growthRate}%`;
+        }
+        
+        function initializeCharts() {
+            // Initialize all charts with base scenario
+            createRevenueMarginChart();
+            createSegmentBreakdownChart();
+            createFutureProjectionsChart(scenarios.base.revenueGrowth);
+            createDCFValuationChart();
+            createValuationMetricsChart();
+            createSensitivityHeatmap(scenarios.base.revenueGrowth, scenarios.base.discountRate);
+            createMarketShareChart(scenarios.base.marketShare);
+            createFinancialComparisonChart();
+            createCompetitivePositioningChart();
+            createPriceChart(false, false);
+            createTechnicalIndicatorsChart();
+            createSupportResistanceChart();
+            createSWOTChart();
+        }
+        
+        function updateCharts(scenario) {
+            // Update charts based on scenario
+            updateFutureProjectionsChart(scenario.revenueGrowth);
+            updateDCFValuationChart(scenario);
+            updateSensitivityHeatmap(scenario.revenueGrowth, scenario.discountRate);
+            updateMarketShareChart(scenario.marketShare);
+            updateFinancialComparisonChart(scenario);
+        }
+        
+        function createRevenueMarginChart() {
+            const ctx = document.getElementById('revenue-margins-chart').getContext('2d');
+            
+            new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: financialData.quarters,
+                    datasets: [
+                        {
+                            label: 'Revenue (Billions $)',
+                            data: financialData.revenue,
+                            backgroundColor: '#76B900',
+                            order: 2,
+                            yAxisID: 'y'
+                        },
+                        {
+                            label: 'Gross Margin (%)',
+                            data: financialData.grossMargin,
+                            borderColor: '#00A2FF',
+                            backgroundColor: '#00A2FF',
+                            type: 'line',
+                            order: 1,
+                            yAxisID: 'y1'
+                        },
+                        {
+                            label: 'Operating Margin (%)',
+                            data: financialData.operatingMargin,
+                            borderColor: '#9370DB',
+                            backgroundColor: '#9370DB',
+                            type: 'line',
+                            order: 0,
+                            yAxisID: 'y1'
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            title: {
+                                display: true,
+                                text: 'Revenue (Billions $)'
+                            }
+                        },
+                        y1: {
+                            position: 'right',
+                            beginAtZero: true,
+                            min: 50,
+                            max: 80,
+                            title: {
+                                display: true,
+                                text: 'Margin (%)'
+                            }
+                        }
+                    },
+                    plugins: {
+                        title: {
+                            display: true,
+                            text: 'NVIDIA Quarterly Revenue and Margins',
+                            font: {
+                                size: 16
+                            }
+                        }
+                    }
+                }
+            });
+            
+            // Remove loading indicator
+            document.querySelector('#revenue-margins .loading').remove();
+        }
+        
+        function createSegmentBreakdownChart() {
+            const ctx = document.getElementById('segment-breakdown-chart').getContext('2d');
+            
+            new Chart(ctx, {
+                type: 'pie',
+                data: {
+                    labels: segmentData.segments,
+                    datasets: [{
+                        data: segmentData.revenue,
+                        backgroundColor: [
+                            '#76B900', // Data Center
+                            '#00A2FF', // Gaming
+                            '#9370DB', // Professional Visualization
+                            '#FF8C00', // Automotive
+                            '#666666'  // OEM & Other
+                        ],
+                        hoverOffset: 4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        title: {
+                            display: true,
+                            text: 'NVIDIA Revenue by Segment (Q4 FY2025)',
+                            font: {
+                                size: 16
+                            }
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    const label = context.label || '';
+                                    const value = context.raw || 0;
+                                    const percentage = context.parsed || 0;
+                                    return `${label}: $${value}B (${Math.round(percentage / segmentData.revenue.reduce((a, b) => a + b, 0) * 1000) / 10}%)`;
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+            
+            // Remove loading indicator
+            document.querySelector('#segment-breakdown .loading').remove();
+        }
+        
+        function createFutureProjectionsChart(growthRate) {
+            const ctx = document.getElementById('future-projections-chart').getContext('2d');
+            const baseRevenue = 130.5;
+            
+            const projectedRevenue = [
+                baseRevenue,
+                Math.round(baseRevenue * (1 + growthRate/100) * 10) / 10,
+                Math.round(baseRevenue * Math.pow(1 + growthRate/100, 2) * 10) / 10,
+                Math.round(baseRevenue * Math.pow(1 + growthRate/100, 3) * 10) / 10,
+                Math.round(baseRevenue * Math.pow(1 + growthRate/100, 4) * 10) / 10,
+                Math.round(baseRevenue * Math.pow(1 + growthRate/100, 5) * 10) / 10
+            ];
+            
+            window.futureProjectionsChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: ['FY2025', 'FY2026', 'FY2027', 'FY2028', 'FY2029', 'FY2030'],
+                    datasets: [{
+                        label: 'Projected Revenue (Billions $)',
+                        data: projectedRevenue,
+                        borderColor: '#76B900',
+                        backgroundColor: 'rgba(118, 185, 0, 0.2)',
+                        borderWidth: 2,
+                        fill: true,
+                        tension: 0.1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            title: {
+                                display: true,
+                                text: 'Revenue (Billions $)'
+                            }
+                        }
+                    },
+                    plugins: {
+                        title: {
+                            display: true,
+                            text: `NVIDIA 5-Year Revenue Projection (${growthRate}% Growth)`,
+                            font: {
+                                size: 16
+                            }
+                        }
+                    }
+                }
+            });
+            
+            // Remove loading indicator
+            document.querySelector('#future-projections .loading').remove();
+        }
+        
+        function updateFutureProjectionsChart(growthRate) {
+            const baseRevenue = 130.5;
+            
+            const projectedRevenue = [
+                baseRevenue,
+                Math.round(baseRevenue * (1 + growthRate/100) * 10) / 10,
+                Math.round(baseRevenue * Math.pow(1 + growthRate/100, 2) * 10) / 10,
+                Math.round(baseRevenue * Math.pow(1 + growthRate/100, 3) * 10) / 10,
+                Math.round(baseRevenue * Math.pow(1 + growthRate/100, 4) * 10) / 10,
+                Math.round(baseRevenue * Math.pow(1 + growthRate/100, 5) * 10) / 10
+            ];
+            
+            window.futureProjectionsChart.data.datasets[0].data = projectedRevenue;
+            window.futureProjectionsChart.options.plugins.title.text = `NVIDIA 5-Year Revenue Projection (${growthRate}% Growth)`;
+            window.futureProjectionsChart.update();
+        }
+        
+        function createDCFValuationChart() {
+            const ctx = document.getElementById('dcf-valuation-chart').getContext('2d');
+            
+            window.dcfValuationChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: ['Bear Case', 'Base Case', 'Bull Case', 'Current Price'],
+                    datasets: [{
+                        label: 'Stock Price ($)',
+                        data: [scenarios.bear.dcfValue, scenarios.base.dcfValue, scenarios.bull.dcfValue, 115.58],
+                        backgroundColor: [
+                            '#FF3333', // Bear
+                            '#76B900', // Base
+                            '#00A2FF', // Bull
+                            '#666666'  // Current
+                        ],
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            title: {
+                                display: true,
+                                text: 'Stock Price ($)'
+                            }
+                        }
+                    },
+                    plugins: {
+                        title: {
+                            display: true,
+                            text: 'NVIDIA DCF Valuation Scenarios',
+                            font: {
+                                size: 16
+                            }
+                        }
+                    }
+                }
+            });
+            
+            // Remove loading indicator
+            document.querySelector('#dcf-valuation .loading').remove();
+        }
+        
+        function updateDCFValuationChart(scenario) {
+            window.dcfValuationChart.data.datasets[0].data = [
+                scenarios.bear.dcfValue, 
+                scenarios.base.dcfValue, 
+                scenarios.bull.dcfValue, 
+                115.58
+            ];
+            window.dcfValuationChart.update();
+        }
+        
+        function createValuationMetricsChart() {
+            const ctx = document.getElementById('valuation-metrics-chart').getContext('2d');
+            
+            new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: ['P/E (TTM)', 'Forward P/E', 'PEG Ratio', 'P/S (TTM)', 'EV/EBITDA'],
+                    datasets: [
+                        {
+                            label: 'NVIDIA',
+                            data: [39.43, 25.70, 1.28, 21.6, 33.8],
+                            backgroundColor: '#76B900'
+                        },
+                        {
+                            label: 'Industry Average',
+                            data: [29.8, 22.4, 1.5, 8.2, 18.5],
+                            backgroundColor: '#666666'
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            title: {
+                                display: true,
+                                text: 'Value'
+                            }
+                        }
+                    },
+                    plugins: {
+                        title: {
+                            display: true,
+                            text: 'NVIDIA vs Industry Average Valuation Metrics',
+                            font: {
+                                size: 16
+                            }
+                        }
+                    }
+                }
+            });
+            
+            // Remove loading indicator
+            document.querySelector('#valuation-metrics .loading').remove();
+        }
+        
+        function createSensitivityHeatmap(growthRate, discountRate) {
+            const growthRates = [10, 15, 20, 25, 30, 35, 40];
+            const discountRates = [7, 8, 9, 10, 11, 12];
+            
+            // Generate DCF values for each combination
+            const baseValue = 99.45; // Base case with 20% growth and 9.4% discount rate
+            const values = [];
+            
+            for (let i = 0; i < discountRates.length; i++) {
+                const row = [];
+                for (let j = 0; j < growthRates.length; j++) {
+                    const growthEffect = (growthRates[j] - 20) * 3.5;
+                    const discountEffect = (9.4 - discountRates[i]) * 12;
+                    row.push(Math.round((baseValue + growthEffect + discountEffect) * 100) / 100);
+                }
+                values.push(row);
+            }
+            
+            // Create heatmap
+            const data = [{
+                z: values,
+                x: growthRates.map(rate => rate + '%'),
+                y: discountRates.map(rate => rate + '%'),
+                type: 'heatmap',
+                colorscale: [
+                    [0, '#FF3333'],
+                    [0.5, '#FFFFFF'],
+                    [1, '#76B900']
+                ],
+                showscale: true,
+                hovertemplate: 'Growth Rate: %{x}<br>Discount Rate: %{y}<br>DCF Value: $%{z}<extra></extra>'
+            }];
+            
+            const layout = {
+                title: 'DCF Sensitivity Analysis',
+                xaxis: {
+                    title: 'Revenue Growth Rate (%)'
+                },
+                yaxis: {
+                    title: 'Discount Rate (%)'
+                },
+                annotations: [{
+                    x: growthRate + '%',
+                    y: discountRate + '%',
+                    text: 'Current',
+                    showarrow: true,
+                    arrowhead: 2,
+                    arrowsize: 1,
+                    arrowwidth: 2,
+                    arrowcolor: '#000000'
+                }]
+            };
+            
+            Plotly.newPlot('sensitivity-heatmap', data, layout, {responsive: true});
+            
+            // Remove loading indicator
+            document.querySelector('#sensitivity-analysis .loading').remove();
+        }
+        
+        function updateSensitivityHeatmap(growthRate, discountRate) {
+            // Update annotation position
+            const update = {
+                annotations: [{
+                    x: growthRate + '%',
+                    y: discountRate + '%',
+                    text: 'Current',
+                    showarrow: true,
+                    arrowhead: 2,
+                    arrowsize: 1,
+                    arrowwidth: 2,
+                    arrowcolor: '#000000'
+                }]
+            };
+            
+            Plotly.relayout('sensitivity-heatmap', update);
+        }
+        
+        function createMarketShareChart(marketShare) {
+            const ctx = document.getElementById('market-share-chart').getContext('2d');
+            
+            // Adjust competitor market shares to ensure total is 100%
+            const otherShare = 100 - marketShare - 9; // 9% is the sum of other competitors' shares
+            const adjustedShares = [marketShare, 5, 1, 2, 1, otherShare];
+            
+            window.marketShareChart = new Chart(ctx, {
+                type: 'pie',
+                data: {
+                    labels: ['NVIDIA', 'AMD', 'Intel', 'Qualcomm', 'Broadcom', 'Others'],
+                    datasets: [{
+                        data: adjustedShares,
+                        backgroundColor: [
+                            '#76B900', // NVIDIA
+                            '#ED1C24', // AMD
+                            '#0071C5', // Intel
+                            '#3253DC', // Qualcomm
+                            '#CC0000', // Broadcom
+                            '#CCCCCC'  // Others
+                        ],
+                        hoverOffset: 4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        title: {
+                            display: true,
+                            text: 'AI Chip Market Share',
+                            font: {
+                                size: 16
+                            }
+                        }
+                    }
+                }
+            });
+            
+            // Remove loading indicator
+            document.querySelector('#market-share .loading').remove();
+        }
+        
+        function updateMarketShareChart(marketShare) {
+            // Adjust competitor market shares to ensure total is 100%
+            const otherShare = 100 - marketShare - 9; // 9% is the sum of other competitors' shares
+            const adjustedShares = [marketShare, 5, 1, 2, 1, otherShare];
+            
+            window.marketShareChart.data.datasets[0].data = adjustedShares;
+            window.marketShareChart.update();
+        }
+        
+        function createFinancialComparisonChart() {
+            const ctx = document.getElementById('financial-comparison-chart').getContext('2d');
+            
+            window.financialComparisonChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: competitorData.companies,
+                    datasets: [
+                        {
+                            label: 'Revenue Growth (%)',
+                            data: competitorData.growth,
+                            backgroundColor: '#76B900',
+                            order: 1
+                        },
+                        {
+                            label: 'Gross Margin (%)',
+                            data: competitorData.grossMargin,
+                            backgroundColor: '#00A2FF',
+                            order: 2
+                        },
+                        {
+                            label: 'Operating Margin (%)',
+                            data: competitorData.operatingMargin,
+                            backgroundColor: '#9370DB',
+                            order: 3
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            title: {
+                                display: true,
+                                text: 'Percentage (%)'
+                            }
+                        }
+                    },
+                    plugins: {
+                        title: {
+                            display: true,
+                            text: 'Financial Metrics Comparison',
+                            font: {
+                                size: 16
+                            }
+                        }
+                    }
+                }
+            });
+            
+            // Remove loading indicator
+            document.querySelector('#financial-comparison .loading').remove();
+        }
+        
+        function updateFinancialComparisonChart(scenario) {
+            // Update NVIDIA's metrics
+            window.financialComparisonChart.data.datasets[0].data[0] = scenario.revenueGrowth;
+            window.financialComparisonChart.data.datasets[1].data[0] = scenario.grossMargin;
+            window.financialComparisonChart.update();
+        }
+        
+        function createCompetitivePositioningChart() {
+            const data = [{
+                x: [0.9, 0.3, 0.2, 0.5, 0.7],
+                y: [0.9, 0.4, 0.3, 0.6, 0.7],
+                mode: 'markers+text',
+                type: 'scatter',
+                text: competitorData.companies,
+                textposition: 'top center',
+                marker: {
+                    size: [40, 20, 15, 25, 30],
+                    color: ['#76B900', '#ED1C24', '#0071C5', '#3253DC', '#CC0000']
+                }
+            }];
+            
+            const layout = {
+                title: 'Competitive Positioning Matrix',
+                xaxis: {
+                    title: 'AI Capabilities',
+                    range: [0, 1]
+                },
+                yaxis: {
+                    title: 'Financial Strength',
+                    range: [0, 1]
+                },
+                showlegend: false
+            };
+            
+            Plotly.newPlot('competitive-positioning-chart', data, layout, {responsive: true});
+            
+            // Remove loading indicator
+            document.querySelector('#competitive-positioning .loading').remove();
+        }
+        
+        function createPriceChart(showMA, showVolume) {
+            const trace1 = {
+                x: stockPriceData.dates,
+                y: stockPriceData.prices,
+                type: 'scatter',
+                mode: 'lines',
+                name: 'Stock Price',
+                line: {
+                    color: '#76B900',
+                    width: 2
+                }
+            };
+            
+            const data = [trace1];
+            
+            if (showMA) {
+                // Calculate 50-day moving average
+                const ma50 = [];
+                for (let i = 0; i < stockPriceData.prices.length; i++) {
+                    if (i < 4) {
+                        ma50.push(null);
+                    } else {
+                        const sum = stockPriceData.prices.slice(i-4, i+1).reduce((a, b) => a + b, 0);
+                        ma50.push(sum / 5);
+                    }
+                }
+                
+                // Calculate 200-day moving average
+                const ma200 = [];
+                for (let i = 0; i < stockPriceData.prices.length; i++) {
+                    if (i < 9) {
+                        ma200.push(null);
+                    } else {
+                        const sum = stockPriceData.prices.slice(i-9, i+1).reduce((a, b) => a + b, 0);
+                        ma200.push(sum / 10);
+                    }
+                }
+                
+                const trace2 = {
+                    x: stockPriceData.dates,
+                    y: ma50,
+                    type: 'scatter',
+                    mode: 'lines',
+                    name: '50-Day MA',
+                    line: {
+                        color: '#FF8C00',
+                        width: 2
+                    }
+                };
+                
+                const trace3 = {
+                    x: stockPriceData.dates,
+                    y: ma200,
+                    type: 'scatter',
+                    mode: 'lines',
+                    name: '200-Day MA',
+                    line: {
+                        color: '#00A2FF',
+                        width: 2
+                    }
+                };
+                
+                data.push(trace2, trace3);
+            }
+            
+            const layout = {
+                title: 'NVIDIA 12-Month Stock Price History',
+                xaxis: {
+                    title: 'Date'
+                },
+                yaxis: {
+                    title: 'Stock Price ($)'
+                }
+            };
+            
+            if (showVolume) {
+                const trace4 = {
+                    x: stockPriceData.dates,
+                    y: stockPriceData.volume,
+                    type: 'bar',
+                    name: 'Volume',
+                    marker: {
+                        color: '#666666'
+                    },
+                    yaxis: 'y2'
+                };
+                
+                data.push(trace4);
+                
+                layout.yaxis2 = {
+                    title: 'Volume (Millions)',
+                    titlefont: {color: '#666666'},
+                    tickfont: {color: '#666666'},
+                    overlaying: 'y',
+                    side: 'right'
+                };
+            }
+            
+            Plotly.newPlot('interactive-price-chart', data, layout, {responsive: true});
+            
+            // Remove loading indicator
+            document.querySelector('#price-chart .loading').remove();
+        }
+        
+        function updatePriceChart(showMA, showVolume) {
+            createPriceChart(showMA, showVolume);
+        }
+        
+        function createTechnicalIndicatorsChart() {
+            const ctx = document.getElementById('technical-indicators-chart').getContext('2d');
+            
+            new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: ['RSI (14)', 'MACD', 'Stochastic %K', 'Stochastic %D', 'ADX'],
+                    datasets: [{
+                        label: 'Value',
+                        data: [42.5, -2.1, 35.2, 40.1, 22.3],
+                        backgroundColor: [
+                            '#FF8C00', // RSI - Neutral
+                            '#FF3333', // MACD - Sell
+                            '#FF3333', // Stochastic %K - Sell
+                            '#FF3333', // Stochastic %D - Sell
+                            '#FF8C00'  // ADX - Neutral
+                        ],
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            beginAtZero: false,
+                            title: {
+                                display: true,
+                                text: 'Value'
+                            }
+                        }
+                    },
+                    plugins: {
+                        title: {
+                            display: true,
+                            text: 'Technical Indicators Summary',
+                            font: {
+                                size: 16
+                            }
+                        }
+                    }
+                }
+            });
+            
+            // Remove loading indicator
+            document.querySelector('#technical-indicators .loading').remove();
+        }
+        
+        function createSupportResistanceChart() {
+            const data = [{
+                x: stockPriceData.dates,
+                y: stockPriceData.prices,
+                type: 'scatter',
+                mode: 'lines',
+                name: 'Stock Price',
+                line: {
+                    color: '#76B900',
+                    width: 2
+                }
+            }];
+            
+            // Add support and resistance lines
+            const supportResistance = [
+                {level: 121.60, type: 'Resistance', color: '#FF3333'},
+                {level: 119.68, type: 'Resistance', color: '#FF8C00'},
+                {level: 117.63, type: 'Resistance', color: '#FF8C00'},
+                {level: 113.66, type: 'Support', color: '#00A2FF'},
+                {level: 111.74, type: 'Support', color: '#00A2FF'},
+                {level: 109.69, type: 'Support', color: '#76B900'}
+            ];
+            
+            supportResistance.forEach(level => {
+                data.push({
+                    x: stockPriceData.dates,
+                    y: Array(stockPriceData.dates.length).fill(level.level),
+                    type: 'scatter',
+                    mode: 'lines',
+                    name: `${level.type} ($${level.level})`,
+                    line: {
+                        color: level.color,
+                        width: 2,
+                        dash: 'dash'
+                    }
+                });
+            });
+            
+            const layout = {
+                title: 'Support and Resistance Levels',
+                xaxis: {
+                    title: 'Date'
+                },
+                yaxis: {
+                    title: 'Stock Price ($)'
+                }
+            };
+            
+            Plotly.newPlot('support-resistance-chart', data, layout, {responsive: true});
+            
+            // Remove loading indicator
+            document.querySelector('#support-resistance .loading').remove();
+        }
+        
+        function createSWOTChart() {
+            const data = [
+                {
+                    type: 'scatter',
+                    mode: 'text',
+                    x: [0.25, 0.75, 0.25, 0.75],
+                    y: [0.75, 0.75, 0.25, 0.25],
+                    text: ['STRENGTHS', 'WEAKNESSES', 'OPPORTUNITIES', 'THREATS'],
+                    textfont: {
+                        color: 'white',
+                        size: 16,
+                        weight: 'bold'
+                    },
+                    showlegend: false
+                }
+            ];
+            
+            // Add SWOT items
+            const swotItems = [
+                // Strengths
+                {x: 0.25, y: 0.65, text: '• Dominant AI chip market share (80%)', color: 'black'},
+                {x: 0.25, y: 0.60, text: '• Industry-leading profit margins (75%)', color: 'black'},
+                {x: 0.25, y: 0.55, text: '• Strong CUDA software ecosystem', color: 'black'},
+                
+                // Weaknesses
+                {x: 0.75, y: 0.65, text: '• Heavy concentration in AI computing', color: 'black'},
+                {x: 0.75, y: 0.60, text: '• Limited presence in CPUs', color: 'black'},
+                
+                // Opportunities
+                {x: 0.25, y: 0.15, text: '• Expansion into software and services', color: 'black'},
+                {x: 0.25, y: 0.10, text: '• Edge AI computing growth', color: 'black'},
+                
+                // Threats
+                {x: 0.75, y: 0.15, text: '• Increasing competition', color: 'black'},
+                {x: 0.75, y: 0.10, text: '• Potential regulatory challenges', color: 'black'}
+            ];
+            
+            data.push({
+                type: 'scatter',
+                mode: 'text',
+                x: swotItems.map(item => item.x),
+                y: swotItems.map(item => item.y),
+                text: swotItems.map(item => item.text),
+                textfont: {
+                    color: swotItems.map(item => item.color),
+                    size: 14
+                },
+                showlegend: false
+            });
+            
+            const layout = {
+                title: 'NVIDIA SWOT Analysis',
+                showlegend: false,
+                xaxis: {
+                    showgrid: false,
+                    zeroline: false,
+                    showticklabels: false,
+                    range: [0, 1]
+                },
+                yaxis: {
+                    showgrid: false,
+                    zeroline: false,
+                    showticklabels: false,
+                    range: [0, 1]
+                },
+                shapes: [
+                    // Vertical line
+                    {
+                        type: 'line',
+                        x0: 0.5,
+                        y0: 0,
+                        x1: 0.5,
+                        y1: 1,
+                        line: {
+                            color: 'black',
+                            width: 2
+                        }
+                    },
+                    // Horizontal line
+                    {
+                        type: 'line',
+                        x0: 0,
+                        y0: 0.5,
+                        x1: 1,
+                        y1: 0.5,
+                        line: {
+                            color: 'black',
+                            width: 2
+                        }
+                    },
+                    // Strengths background
+                    {
+                        type: 'rect',
+                        x0: 0,
+                        y0: 0.5,
+                        x1: 0.5,
+                        y1: 1,
+                        fillcolor: '#76B900',
+                        opacity: 0.3,
+                        line: {width: 0}
+                    },
+                    // Weaknesses background
+                    {
+                        type: 'rect',
+                        x0: 0.5,
+                        y0: 0.5,
+                        x1: 1,
+                        y1: 1,
+                        fillcolor: '#FF3333',
+                        opacity: 0.3,
+                        line: {width: 0}
+                    },
+                    // Opportunities background
+                    {
+                        type: 'rect',
+                        x0: 0,
+                        y0: 0,
+                        x1: 0.5,
+                        y1: 0.5,
+                        fillcolor: '#00A2FF',
+                        opacity: 0.3,
+                        line: {width: 0}
+                    },
+                    // Threats background
+                    {
+                        type: 'rect',
+                        x0: 0.5,
+                        y0: 0,
+                        x1: 1,
+                        y1: 0.5,
+                        fillcolor: '#FF8C00',
+                        opacity: 0.3,
+                        line: {width: 0}
+                    }
+                ]
+            };
+            
+            Plotly.newPlot('swot-chart', data, layout, {responsive: true});
+            
+            // Remove loading indicator
+            document.querySelector('.dashboard-card:last-child .loading').remove();
+        }
+        
+        function createRiskSensitivityChart() {
+            const data = [{
+                type: 'scatter',
+                mode: 'markers',
+                x: [0.2, 0.5, 0.8, 0.3, 0.7],
+                y: [0.7, 0.5, 0.3, 0.2, 0.8],
+                text: [
+                    'Competition Intensification',
+                    'Margin Pressure',
+                    'Regulatory Challenges',
+                    'Market Saturation',
+                    'Valuation Contraction'
+                ],
+                marker: {
+                    size: [40, 30, 35, 25, 45],
+                    color: ['#FF8C00', '#FF8C00', '#FF3333', '#FF8C00', '#FF3333'],
+                    opacity: 0.7
+                },
+                hovertemplate: '%{text}<br>Likelihood: %{x}<br>Impact: %{y}<extra></extra>'
+            }];
+            
+            const layout = {
+                title: 'Risk Sensitivity Analysis',
+                xaxis: {
+                    title: 'Likelihood',
+                    range: [0, 1]
+                },
+                yaxis: {
+                    title: 'Impact',
+                    range: [0, 1]
+                },
+                showlegend: false,
+                annotations: [
+                    {
+                        x: 0.5,
+                        y: 0.95,
+                        xref: 'paper',
+                        yref: 'paper',
+                        text: 'Higher values indicate greater likelihood/impact',
+                        showarrow: false,
+                        font: {
+                            size: 12,
+                            color: '#666666'
+                        }
+                    }
+                ]
+            };
+            
+            Plotly.newPlot('risk-sensitivity-chart', data, layout, {responsive: true});
+            
+            // Remove loading indicator
+            document.querySelector('#risk-sensitivity-chart .loading').remove();
+        }
+    </script>
+</body>
+</html>
